@@ -1,0 +1,20 @@
+{
+  "name": "matejbukovsky/codegen",
+  "type": "library",
+  "license": "MIT",
+  "require": {
+    "php": ">= 7.2",
+    "nette/reflection": "^2.4",
+    "symfony/finder": "^4.3",
+    "nette/php-generator": "^3.2",
+    "doctrine/annotations": "^1.6",
+    "nikic/php-parser": "^4.3"
+  },
+  "minimum-stability": "stable",
+  "bin": [
+    "codegen"
+  ],
+  "autoload": {
+    "classmap": ["src/"]
+  }
+}

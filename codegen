@@ -1,0 +1,65 @@
+#!/usr/bin/env php
+<?php
+
+use Codegen\AutoLoader;
+use Codegen\CliOptionsProvider;
+use Codegen\ColoredText;
+use Codegen\FileLoader;
+use Codegen\FileWriter;
+use Codegen\TemplateApplicator;
+
+ini_set('display_errors',1);
+
+$isProjectMode = !file_exists(__DIR__ . '/vendor');
+$vendorPath = $isProjectMode ?  __DIR__ . '/../../' : __DIR__ . '/';
+$rootDir = $isProjectMode ? __DIR__ . '/../../../' : __DIR__;
+
+require_once(__DIR__ . '/src/FileLoader.php');
+require_once(__DIR__ . '/src/AutoLoader.php');
+require_once(__DIR__ . '/src/TemplateApplicator.php');
+require_once(__DIR__ . '/src/FileWriter.php');
+require_once(__DIR__ . '/src/CliOptionsProvider.php');
+require_once(__DIR__ . '/src/ColoredText.php');
+
+$config = new CliOptionsProvider($rootDir);
+$coloredText = new ColoredText();
+$coloredText->printAppName();
+$fileLoader = new FileLoader();
+$fileWriter = new FileWriter($coloredText, $config);
+$autoloader = new AutoLoader();
+
+
+$codegenFiles = $fileLoader->getFilesWithNamespace($vendorPath);
+$autoloader->addClasses($codegenFiles);
+
+$templateApplicator = new TemplateApplicator($fileLoader, $config->getTemplateDirs());
+
+Doctrine\Common\Annotations\AnnotationRegistry::registerLoader([$autoloader, 'tryLoad']);
+
+if (PHP_SAPI !== 'cli') {
+	$coloredText->printErrorString('Codegen generator supports only CLI.');
+	exit(255);
+}
+
+if ($config->isHelp()) {
+	$coloredText->printArrayTable($config->getVariableDescriptions());
+	exit(0);
+}
+
+try {
+	$codegen = new \Codegen\Codegen($fileLoader, $fileWriter, $templateApplicator, $autoloader, $coloredText);
+	$codegen->run($config);
+	if ($config->getComposerDumpAutoload()) {
+		$composerDump = 'composer dump-autoload --optimize' . ($config->isVerbose() ? '' : ' --quiet');
+		$coloredText->printColoredString(sprintf("\nExecuting: %s\n", $composerDump), 'cyan');
+		exec($composerDump);
+	}
+	$coloredText->printColoredString("\nSuccessfully finished \xE2\x9c\x94", 'white', 'green');
+	exit(0);
+} catch (\Throwable $e) {
+	$coloredText->printErrorString($e->getMessage());
+	if ($config->isVerbose()) {
+		$coloredText->printErrorString($e->getTraceAsString());
+	}
+	exit(255);
+}
